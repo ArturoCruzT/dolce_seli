@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { ProductoIndividual, Paquete, Topping, PedidoCreate, ItemPedido } from '@/types';
 import { obtenerProductosIndividuales, obtenerPaquetes } from '@/lib/productos.service';
 import { obtenerToppingsActivos } from '@/lib/toppings.service';
-import { crearPedido } from '@/lib/pedido.services';
+import { crearPedido } from '@/lib/pedidos.service';
 
 interface ComponentePaquete {
   productoId: string; nombre: string; emoji?: string;
@@ -175,8 +175,17 @@ export default function POSPage() {
     const items: ItemPedido[] = carrito.map(item => ({
       tipo: item.tipo, productoId: item.productoId, productoNombre: item.nombre,
       cantidad: item.cantidad, precioUnitario: item.precio,
-      toppingsSeleccionados: item.toppings,
-      toppingsPorItem: item.componentesPaquete?.map((c, idx) => ({ itemIndex: idx, toppings: c.toppings })),
+      toppingsSeleccionados: item.toppings.map(t => ({
+        toppingId: t.id,
+        toppingNombre: t.nombre,
+      })),
+      toppingsPorItem: item.componentesPaquete?.map((c, idx) => ({
+        itemIndex: idx,
+        toppings: c.toppings.map(t => ({
+          toppingId: t.id,
+          toppingNombre: t.nombre,
+        })),
+      })),
     }));
     const res = await crearPedido({ cliente: nombre, telefono,
       direccion: direccion || undefined, linkMaps: linkMaps || undefined,
