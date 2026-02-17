@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { ProductoIndividual, Paquete, Topping, PedidoCreate, ItemPedido } from '@/types';
 import { obtenerProductosIndividuales, obtenerPaquetes } from '@/lib/productos.service';
 import { obtenerToppingsActivos } from '@/lib/toppings.service';
-import { crearPedido } from '@/lib/pedidos.service';
+import { crearPedido } from '@/lib/pedido.services';
 
 interface ComponentePaquete {
   productoId: string; nombre: string; emoji?: string;
