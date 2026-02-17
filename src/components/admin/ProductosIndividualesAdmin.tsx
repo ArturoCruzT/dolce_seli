@@ -1,15 +1,23 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ProductoIndividual } from '@/types';
-import { StorageService } from '@/lib/storage.service';
+import { ProductoIndividual, ProductoIndividualCreate } from '@/types';
+import {
+  obtenerProductosIndividuales,
+  crearProductoIndividual,
+  actualizarProductoIndividual,
+  eliminarProductoIndividual,
+  cambiarEstadoProductoIndividual,
+} from '@/lib/productos.service';
 
 export default function ProductosIndividualesAdmin() {
   const [productos, setProductos] = useState<ProductoIndividual[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [editingProducto, setEditingProducto] = useState<ProductoIndividual | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<ProductoIndividualCreate>({
     nombre: '',
     descripcion: '',
     precio: 0,
@@ -21,9 +29,11 @@ export default function ProductosIndividualesAdmin() {
     cargarProductos();
   }, []);
 
-  const cargarProductos = () => {
-    const data = StorageService.getProductosIndividuales();
+  const cargarProductos = async () => {
+    setLoading(true);
+    const data = await obtenerProductosIndividuales();
     setProductos(data);
+    setLoading(false);
   };
 
   const handleNuevoProducto = () => {
@@ -50,49 +60,60 @@ export default function ProductosIndividualesAdmin() {
     setShowModal(true);
   };
 
-  const handleGuardar = () => {
-    let nuevosProductos: ProductoIndividual[];
+  const handleGuardar = async () => {
+    setSaving(true);
 
-    if (editingProducto) {
-      // Editar existente
-      nuevosProductos = productos.map(p =>
-        p.id === editingProducto.id
-          ? { ...p, ...formData, updatedAt: new Date() }
-          : p
-      );
-    } else {
-      // Crear nuevo
-      const nuevoProducto: ProductoIndividual = {
-        id: Date.now().toString(),
-        ...formData,
-        tipo: 'individual',
-        activo: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-      nuevosProductos = [...productos, nuevoProducto];
+    try {
+      if (editingProducto) {
+        const updated = await actualizarProductoIndividual(editingProducto.id, formData);
+        if (updated) {
+          setProductos(productos.map(p => p.id === updated.id ? updated : p));
+        }
+      } else {
+        const created = await crearProductoIndividual(formData);
+        if (created) {
+          setProductos([created, ...productos]);
+        }
+      }
+      setShowModal(false);
+    } catch (error) {
+      console.error('Error al guardar producto:', error);
+    } finally {
+      setSaving(false);
     }
-
-    StorageService.saveProductosIndividuales(nuevosProductos);
-    setProductos(nuevosProductos);
-    setShowModal(false);
   };
 
-  const toggleActivo = (id: string) => {
-    const nuevosProductos = productos.map(p =>
-      p.id === id ? { ...p, activo: !p.activo } : p
+  const toggleActivo = async (id: string) => {
+    const producto = productos.find(p => p.id === id);
+    if (!producto) return;
+
+    const success = await cambiarEstadoProductoIndividual(id, !producto.activo);
+    if (success) {
+      setProductos(productos.map(p =>
+        p.id === id ? { ...p, activo: !p.activo } : p
+      ));
+    }
+  };
+
+  const handleEliminar = async (id: string) => {
+    if (!confirm('¿Estás seguro de eliminar este producto?')) return;
+
+    const success = await eliminarProductoIndividual(id);
+    if (success) {
+      setProductos(productos.filter(p => p.id !== id));
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="text-4xl mb-4">🍓</div>
+          <p className="text-gray-600">Cargando productos...</p>
+        </div>
+      </div>
     );
-    StorageService.saveProductosIndividuales(nuevosProductos);
-    setProductos(nuevosProductos);
-  };
-
-  const handleEliminar = (id: string) => {
-    if (confirm('¿Estás seguro de eliminar este producto?')) {
-      const nuevosProductos = productos.filter(p => p.id !== id);
-      StorageService.saveProductosIndividuales(nuevosProductos);
-      setProductos(nuevosProductos);
-    }
-  };
+  }
 
   return (
     <div>
@@ -132,69 +153,69 @@ export default function ProductosIndividualesAdmin() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase">Producto</th>
-                <th className="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase">Precio</th>
-                <th className="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase">Toppings Incluidos</th>
-                <th className="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase">Estado</th>
-                <th className="px-6 py-4 text-right text-xs font-medium text-gray-600 uppercase">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {productos.map((producto) => (
-                <tr key={producto.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <span className="text-3xl">{producto.emoji}</span>
-                      <div>
-                        <p className="font-medium text-gray-800">{producto.nombre}</p>
-                        <p className="text-sm text-gray-600">{producto.descripcion}</p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="text-lg font-bold text-pink-deep">${producto.precio}</span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="bg-pink-100 text-pink-deep px-3 py-1 rounded-full text-sm font-medium">
-                      {producto.toppingsIncluidos} topping{producto.toppingsIncluidos > 1 ? 's' : ''}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <button
-                      onClick={() => toggleActivo(producto.id)}
-                      className={`px-4 py-2 rounded-dolce text-sm font-medium transition-colors ${
-                        producto.activo
-                          ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                      }`}
-                    >
-                      {producto.activo ? '✓ Activo' : '✗ Inactivo'}
-                    </button>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center justify-end gap-2">
-                      <button
-                        onClick={() => handleEditarProducto(producto)}
-                        className="px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                      >
-                        ✏️ Editar
-                      </button>
-                      <button
-                        onClick={() => handleEliminar(producto.id)}
-                        className="px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                      >
-                        🗑️
-                      </button>
-                    </div>
-                  </td>
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase">Producto</th>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase">Precio</th>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase">Toppings Incluidos</th>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase">Estado</th>
+                  <th className="px-6 py-4 text-right text-xs font-medium text-gray-600 uppercase">Acciones</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {productos.map((producto) => (
+                  <tr key={producto.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <span className="text-3xl">{producto.emoji}</span>
+                        <div>
+                          <p className="font-medium text-gray-800">{producto.nombre}</p>
+                          <p className="text-sm text-gray-600">{producto.descripcion}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="text-lg font-bold text-pink-deep">${producto.precio}</span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="bg-pink-100 text-pink-deep px-3 py-1 rounded-full text-sm font-medium">
+                        {producto.toppingsIncluidos} topping{producto.toppingsIncluidos > 1 ? 's' : ''}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <button
+                        onClick={() => toggleActivo(producto.id)}
+                        className={`px-4 py-2 rounded-dolce text-sm font-medium transition-colors ${
+                          producto.activo
+                            ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
+                      >
+                        {producto.activo ? '✓ Activo' : '✗ Inactivo'}
+                      </button>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => handleEditarProducto(producto)}
+                          className="px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        >
+                          ✏️ Editar
+                        </button>
+                        <button
+                          onClick={() => handleEliminar(producto.id)}
+                          className="px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        >
+                          🗑️
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 
@@ -285,16 +306,17 @@ export default function ProductosIndividualesAdmin() {
             <div className="flex gap-3 mt-6">
               <button
                 onClick={() => setShowModal(false)}
-                className="flex-1 px-4 py-3 border border-gray-300 rounded-dolce text-gray-700 hover:bg-gray-50 transition-colors"
+                disabled={saving}
+                className="flex-1 px-4 py-3 border border-gray-300 rounded-dolce text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleGuardar}
-                disabled={!formData.nombre || !formData.descripcion || formData.precio <= 0}
+                disabled={!formData.nombre || !formData.descripcion || formData.precio <= 0 || saving}
                 className="flex-1 px-4 py-3 bg-gradient-to-r from-pink-seli to-pink-deep text-white rounded-dolce hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {editingProducto ? 'Guardar Cambios' : 'Crear Producto'}
+                {saving ? 'Guardando...' : (editingProducto ? 'Guardar Cambios' : 'Crear Producto')}
               </button>
             </div>
           </div>

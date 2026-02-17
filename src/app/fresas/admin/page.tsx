@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import ProductosIndividualesAdmin from '@/components/admin/ProductosIndividualesAdmin';
 import PaquetesAdmin from '@/components/admin/PaquetesAdmin';
 import ToppingsAdmin from '@/components/admin/ToppingsAdmin';
+import TestConexion from '@/components/admin/TestConexion';
 
 type TabType = 'individuales' | 'paquetes' | 'toppings';
 
@@ -42,6 +43,9 @@ export default function AdminPage() {
       </div>
 
       <div className="container mx-auto px-4 py-8">
+        {/* Test de conexión */}
+        <TestConexion />
+
         {/* Tabs Navigation */}
         <div className="bg-white rounded-dolce-lg shadow-dolce overflow-hidden mb-6">
           <div className="border-b border-gray-200">

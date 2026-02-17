@@ -1,32 +1,45 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Paquete, ProductoIndividual } from '@/types';
-import { StorageService } from '@/lib/storage.service';
+import { Paquete, ProductoIndividual, PaqueteCreate } from '@/types';
+import {
+  obtenerPaquetes,
+  crearPaquete,
+  actualizarPaquete,
+  eliminarPaquete,
+  cambiarEstadoPaquete,
+  obtenerProductosIndividuales,
+} from '@/lib/productos.service';
 
 export default function PaquetesAdmin() {
   const [paquetes, setPaquetes] = useState<Paquete[]>([]);
   const [productosDisponibles, setProductosDisponibles] = useState<ProductoIndividual[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [editingPaquete, setEditingPaquete] = useState<Paquete | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<PaqueteCreate>({
     nombre: '',
     descripcion: '',
     precio: 0,
     toppingsIncluidos: 1,
-    productos: [] as { productoId: string; cantidad: number }[],
+    productosIncluidos: [],
   });
 
   useEffect(() => {
     cargarDatos();
   }, []);
 
-  const cargarDatos = () => {
-    const prods = StorageService.getProductosIndividuales();
-    const paqs = StorageService.getPaquetes();
+  const cargarDatos = async () => {
+    setLoading(true);
+    const [prods, paqs] = await Promise.all([
+      obtenerProductosIndividuales(),
+      obtenerPaquetes(),
+    ]);
     setProductosDisponibles(prods.filter(p => p.activo));
     setPaquetes(paqs);
+    setLoading(false);
   };
 
   const handleNuevoPaquete = () => {
@@ -36,7 +49,7 @@ export default function PaquetesAdmin() {
       descripcion: '',
       precio: 0,
       toppingsIncluidos: 1,
-      productos: [],
+      productosIncluidos: [],
     });
     setShowModal(true);
   };
@@ -48,7 +61,7 @@ export default function PaquetesAdmin() {
       descripcion: paquete.descripcion,
       precio: paquete.precio,
       toppingsIncluidos: paquete.toppingsIncluidos,
-      productos: paquete.productosIncluidos,
+      productosIncluidos: paquete.productosIncluidos,
     });
     setShowModal(true);
   };
@@ -56,84 +69,85 @@ export default function PaquetesAdmin() {
   const agregarProductoAPaquete = () => {
     setFormData({
       ...formData,
-      productos: [...formData.productos, { productoId: '', cantidad: 1 }],
+      productosIncluidos: [...formData.productosIncluidos, { productoId: '', cantidad: 1 }],
     });
   };
 
   const actualizarProductoPaquete = (index: number, field: 'productoId' | 'cantidad', value: string | number) => {
-    const nuevosProductos = [...formData.productos];
+    const nuevosProductos = [...formData.productosIncluidos];
     if (field === 'productoId') {
       nuevosProductos[index].productoId = value as string;
     } else {
       nuevosProductos[index].cantidad = value as number;
     }
-    setFormData({ ...formData, productos: nuevosProductos });
+    setFormData({ ...formData, productosIncluidos: nuevosProductos });
   };
 
   const eliminarProductoPaquete = (index: number) => {
     setFormData({
       ...formData,
-      productos: formData.productos.filter((_, i) => i !== index),
+      productosIncluidos: formData.productosIncluidos.filter((_, i) => i !== index),
     });
   };
 
-  const handleGuardar = () => {
-    let nuevosPaquetes: Paquete[];
+  const handleGuardar = async () => {
+    setSaving(true);
 
-    if (editingPaquete) {
-      nuevosPaquetes = paquetes.map(p =>
-        p.id === editingPaquete.id
-          ? {
-              ...p,
-              nombre: formData.nombre,
-              descripcion: formData.descripcion,
-              precio: formData.precio,
-              toppingsIncluidos: formData.toppingsIncluidos,
-              productosIncluidos: formData.productos,
-              updatedAt: new Date(),
-            }
-          : p
-      );
-    } else {
-      const nuevoPaquete: Paquete = {
-        id: Date.now().toString(),
-        nombre: formData.nombre,
-        descripcion: formData.descripcion,
-        precio: formData.precio,
-        tipo: 'paquete',
-        productosIncluidos: formData.productos,
-        toppingsIncluidos: formData.toppingsIncluidos,
-        activo: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-      nuevosPaquetes = [...paquetes, nuevoPaquete];
+    try {
+      if (editingPaquete) {
+        const updated = await actualizarPaquete(editingPaquete.id, formData);
+        if (updated) {
+          setPaquetes(paquetes.map(p => p.id === updated.id ? updated : p));
+        }
+      } else {
+        const created = await crearPaquete(formData);
+        if (created) {
+          setPaquetes([created, ...paquetes]);
+        }
+      }
+      setShowModal(false);
+    } catch (error) {
+      console.error('Error al guardar paquete:', error);
+    } finally {
+      setSaving(false);
     }
-
-    StorageService.savePaquetes(nuevosPaquetes);
-    setPaquetes(nuevosPaquetes);
-    setShowModal(false);
   };
 
-  const toggleActivo = (id: string) => {
-    const nuevosPaquetes = paquetes.map(p =>
-      p.id === id ? { ...p, activo: !p.activo } : p
-    );
-    StorageService.savePaquetes(nuevosPaquetes);
-    setPaquetes(nuevosPaquetes);
+  const toggleActivo = async (id: string) => {
+    const paquete = paquetes.find(p => p.id === id);
+    if (!paquete) return;
+
+    const success = await cambiarEstadoPaquete(id, !paquete.activo);
+    if (success) {
+      setPaquetes(paquetes.map(p =>
+        p.id === id ? { ...p, activo: !p.activo } : p
+      ));
+    }
   };
 
-  const handleEliminar = (id: string) => {
-    if (confirm('¿Estás seguro de eliminar este paquete?')) {
-      const nuevosPaquetes = paquetes.filter(p => p.id !== id);
-      StorageService.savePaquetes(nuevosPaquetes);
-      setPaquetes(nuevosPaquetes);
+  const handleEliminar = async (id: string) => {
+    if (!confirm('¿Estás seguro de eliminar este paquete?')) return;
+
+    const success = await eliminarPaquete(id);
+    if (success) {
+      setPaquetes(paquetes.filter(p => p.id !== id));
     }
   };
 
   const getNombreProducto = (id: string) => {
     return productosDisponibles.find(p => p.id === id)?.nombre || 'Producto no encontrado';
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="text-4xl mb-4">💝</div>
+          <p className="text-gray-600">Cargando paquetes...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -172,62 +186,62 @@ export default function PaquetesAdmin() {
         </div>
       ) : (
         <div className="grid md:grid-cols-2 gap-6">
-        {paquetes.map((paquete) => (
-          <div key={paquete.id} className="bg-white rounded-dolce-lg shadow-dolce p-6">
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex-1">
-                <h3 className="text-xl font-bold text-gray-800 mb-1">{paquete.nombre}</h3>
-                <p className="text-sm text-gray-600">{paquete.descripcion}</p>
+          {paquetes.map((paquete) => (
+            <div key={paquete.id} className="bg-white rounded-dolce-lg shadow-dolce p-6">
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex-1">
+                  <h3 className="text-xl font-bold text-gray-800 mb-1">{paquete.nombre}</h3>
+                  <p className="text-sm text-gray-600">{paquete.descripcion}</p>
+                </div>
+                <button
+                  onClick={() => toggleActivo(paquete.id)}
+                  className={`px-3 py-1 rounded-full text-xs font-medium ${
+                    paquete.activo
+                      ? 'bg-green-100 text-green-700'
+                      : 'bg-gray-100 text-gray-600'
+                  }`}
+                >
+                  {paquete.activo ? 'Activo' : 'Inactivo'}
+                </button>
               </div>
-              <button
-                onClick={() => toggleActivo(paquete.id)}
-                className={`px-3 py-1 rounded-full text-xs font-medium ${
-                  paquete.activo
-                    ? 'bg-green-100 text-green-700'
-                    : 'bg-gray-100 text-gray-600'
-                }`}
-              >
-                {paquete.activo ? 'Activo' : 'Inactivo'}
-              </button>
-            </div>
 
-            <div className="border-t border-gray-100 pt-4 mb-4">
-              <p className="text-sm font-medium text-gray-700 mb-2">Incluye:</p>
-              <div className="space-y-1">
-                {paquete.productosIncluidos.map((item, index) => (
-                  <div key={index} className="flex items-center text-sm text-gray-600">
-                    <span className="text-pink-500 mr-2">•</span>
-                    <span>{item.cantidad}x {getNombreProducto(item.productoId)}</span>
+              <div className="border-t border-gray-100 pt-4 mb-4">
+                <p className="text-sm font-medium text-gray-700 mb-2">Incluye:</p>
+                <div className="space-y-1">
+                  {paquete.productosIncluidos.map((item, index) => (
+                    <div key={index} className="flex items-center text-sm text-gray-600">
+                      <span className="text-pink-500 mr-2">•</span>
+                      <span>{item.cantidad}x {getNombreProducto(item.productoId)}</span>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-gray-500 mt-2">
+                  ✨ {paquete.toppingsIncluidos} topping{paquete.toppingsIncluidos > 1 ? 's' : ''} incluido{paquete.toppingsIncluidos > 1 ? 's' : ''}
+                </p>
+              </div>
+
+              <div className="border-t border-gray-100 pt-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-2xl font-bold text-pink-deep">${paquete.precio}</span>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleEditarPaquete(paquete)}
+                      className="px-3 py-1 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                    >
+                      ✏️ Editar
+                    </button>
+                    <button
+                      onClick={() => handleEliminar(paquete.id)}
+                      className="px-3 py-1 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    >
+                      🗑️
+                    </button>
                   </div>
-                ))}
-              </div>
-              <p className="text-xs text-gray-500 mt-2">
-                ✨ {paquete.toppingsIncluidos} topping{paquete.toppingsIncluidos > 1 ? 's' : ''} incluido{paquete.toppingsIncluidos > 1 ? 's' : ''}
-              </p>
-            </div>
-
-            <div className="border-t border-gray-100 pt-4">
-              <div className="flex items-center justify-between">
-                <span className="text-2xl font-bold text-pink-deep">${paquete.precio}</span>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => handleEditarPaquete(paquete)}
-                    className="px-3 py-1 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                  >
-                    ✏️ Editar
-                  </button>
-                  <button
-                    onClick={() => handleEliminar(paquete.id)}
-                    className="px-3 py-1 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                  >
-                    🗑️
-                  </button>
                 </div>
               </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
       )}
 
       {/* Modal */}
@@ -312,7 +326,7 @@ export default function PaquetesAdmin() {
                 </div>
 
                 <div className="space-y-3 max-h-64 overflow-y-auto">
-                  {formData.productos.map((item, index) => (
+                  {formData.productosIncluidos.map((item, index) => (
                     <div key={index} className="flex gap-3 items-start bg-gray-50 p-3 rounded-dolce">
                       <select
                         value={item.productoId}
@@ -345,7 +359,7 @@ export default function PaquetesAdmin() {
                     </div>
                   ))}
 
-                  {formData.productos.length === 0 && (
+                  {formData.productosIncluidos.length === 0 && (
                     <p className="text-sm text-gray-500 text-center py-4">
                       No hay productos agregados. Haz clic en "Agregar Producto"
                     </p>
@@ -357,18 +371,19 @@ export default function PaquetesAdmin() {
             <div className="flex gap-3 mt-6">
               <button
                 onClick={() => setShowModal(false)}
+                disabled={saving}
                 type="button"
-                className="flex-1 px-4 py-3 border border-gray-300 rounded-dolce text-gray-700 hover:bg-gray-50 transition-colors"
+                className="flex-1 px-4 py-3 border border-gray-300 rounded-dolce text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleGuardar}
                 type="button"
-                disabled={!formData.nombre || !formData.descripcion || formData.precio <= 0 || formData.productos.length === 0}
+                disabled={!formData.nombre || !formData.descripcion || formData.precio <= 0 || formData.productosIncluidos.length === 0 || saving}
                 className="flex-1 px-4 py-3 bg-gradient-to-r from-pink-seli to-pink-deep text-white rounded-dolce hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {editingPaquete ? 'Guardar Cambios' : 'Crear Paquete'}
+                {saving ? 'Guardando...' : (editingPaquete ? 'Guardar Cambios' : 'Crear Paquete')}
               </button>
             </div>
           </div>

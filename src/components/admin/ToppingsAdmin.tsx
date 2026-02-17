@@ -1,15 +1,23 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Topping } from '@/types';
-import { StorageService } from '@/lib/storage.service';
+import { Topping, ToppingCreate } from '@/types';
+import {
+  obtenerToppings,
+  crearTopping,
+  actualizarTopping,
+  eliminarTopping,
+  cambiarEstadoTopping,
+} from '@/lib/toppings.service';
 
 export default function ToppingsAdmin() {
   const [toppings, setToppings] = useState<Topping[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [editingTopping, setEditingTopping] = useState<Topping | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<ToppingCreate>({
     nombre: '',
     descripcion: '',
     emoji: '✨',
@@ -19,9 +27,11 @@ export default function ToppingsAdmin() {
     cargarToppings();
   }, []);
 
-  const cargarToppings = () => {
-    const data = StorageService.getToppings();
+  const cargarToppings = async () => {
+    setLoading(true);
+    const data = await obtenerToppings();
     setToppings(data);
+    setLoading(false);
   };
 
   const handleNuevoTopping = () => {
@@ -44,46 +54,60 @@ export default function ToppingsAdmin() {
     setShowModal(true);
   };
 
-  const handleGuardar = () => {
-    let nuevosToppings: Topping[];
+  const handleGuardar = async () => {
+    setSaving(true);
 
-    if (editingTopping) {
-      nuevosToppings = toppings.map(t =>
-        t.id === editingTopping.id
-          ? { ...t, ...formData, updatedAt: new Date() }
-          : t
-      );
-    } else {
-      const nuevoTopping: Topping = {
-        id: Date.now().toString(),
-        ...formData,
-        activo: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-      nuevosToppings = [...toppings, nuevoTopping];
+    try {
+      if (editingTopping) {
+        const updated = await actualizarTopping(editingTopping.id, formData);
+        if (updated) {
+          setToppings(toppings.map(t => t.id === updated.id ? updated : t));
+        }
+      } else {
+        const created = await crearTopping(formData);
+        if (created) {
+          setToppings([created, ...toppings]);
+        }
+      }
+      setShowModal(false);
+    } catch (error) {
+      console.error('Error al guardar topping:', error);
+    } finally {
+      setSaving(false);
     }
-
-    StorageService.saveToppings(nuevosToppings);
-    setToppings(nuevosToppings);
-    setShowModal(false);
   };
 
-  const toggleActivo = (id: string) => {
-    const nuevosToppings = toppings.map(t =>
-      t.id === id ? { ...t, activo: !t.activo } : t
+  const toggleActivo = async (id: string) => {
+    const topping = toppings.find(t => t.id === id);
+    if (!topping) return;
+
+    const success = await cambiarEstadoTopping(id, !topping.activo);
+    if (success) {
+      setToppings(toppings.map(t =>
+        t.id === id ? { ...t, activo: !t.activo } : t
+      ));
+    }
+  };
+
+  const handleEliminar = async (id: string) => {
+    if (!confirm('¿Estás seguro de eliminar este topping?')) return;
+
+    const success = await eliminarTopping(id);
+    if (success) {
+      setToppings(toppings.filter(t => t.id !== id));
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="text-4xl mb-4">✨</div>
+          <p className="text-gray-600">Cargando toppings...</p>
+        </div>
+      </div>
     );
-    StorageService.saveToppings(nuevosToppings);
-    setToppings(nuevosToppings);
-  };
-
-  const handleEliminar = (id: string) => {
-    if (confirm('¿Estás seguro de eliminar este topping?')) {
-      const nuevosToppings = toppings.filter(t => t.id !== id);
-      StorageService.saveToppings(nuevosToppings);
-      setToppings(nuevosToppings);
-    }
-  };
+  }
 
   return (
     <div>
@@ -122,65 +146,65 @@ export default function ToppingsAdmin() {
         </div>
       ) : (
         <>
-      <div className="grid md:grid-cols-3 lg:grid-cols-4 gap-4">
-        {toppings.map((topping) => (
-          <div 
-            key={topping.id} 
-            className="bg-white rounded-dolce-lg shadow-dolce p-6 hover:shadow-dolce-hover transition-all"
-          >
-            <div className="text-center mb-4">
-              <div className="text-5xl mb-3">{topping.emoji}</div>
-              <h3 className="font-bold text-gray-800 text-lg">{topping.nombre}</h3>
-              {topping.descripcion && (
-                <p className="text-sm text-gray-600 mt-1">{topping.descripcion}</p>
-              )}
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <button
-                onClick={() => toggleActivo(topping.id)}
-                className={`w-full px-3 py-2 rounded-dolce text-sm font-medium transition-colors ${
-                  topping.activo
-                    ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
+          <div className="grid md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {toppings.map((topping) => (
+              <div 
+                key={topping.id} 
+                className="bg-white rounded-dolce-lg shadow-dolce p-6 hover:shadow-dolce-hover transition-all"
               >
-                {topping.activo ? '✓ Activo' : '✗ Inactivo'}
-              </button>
+                <div className="text-center mb-4">
+                  <div className="text-5xl mb-3">{topping.emoji}</div>
+                  <h3 className="font-bold text-gray-800 text-lg">{topping.nombre}</h3>
+                  {topping.descripcion && (
+                    <p className="text-sm text-gray-600 mt-1">{topping.descripcion}</p>
+                  )}
+                </div>
 
-              <div className="flex gap-2">
-                <button
-                  onClick={() => handleEditarTopping(topping)}
-                  className="flex-1 px-3 py-2 text-sm text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-dolce transition-colors"
-                >
-                  ✏️ Editar
-                </button>
-                <button
-                  onClick={() => handleEliminar(topping.id)}
-                  className="px-3 py-2 text-sm text-red-600 bg-red-50 hover:bg-red-100 rounded-dolce transition-colors"
-                >
-                  🗑️
-                </button>
+                <div className="flex flex-col gap-2">
+                  <button
+                    onClick={() => toggleActivo(topping.id)}
+                    className={`w-full px-3 py-2 rounded-dolce text-sm font-medium transition-colors ${
+                      topping.activo
+                        ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    {topping.activo ? '✓ Activo' : '✗ Inactivo'}
+                  </button>
+
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleEditarTopping(topping)}
+                      className="flex-1 px-3 py-2 text-sm text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-dolce transition-colors"
+                    >
+                      ✏️ Editar
+                    </button>
+                    <button
+                      onClick={() => handleEliminar(topping.id)}
+                      className="px-3 py-2 text-sm text-red-600 bg-red-50 hover:bg-red-100 rounded-dolce transition-colors"
+                    >
+                      🗑️
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Nota informativa */}
+          <div className="mt-6 bg-pink-50 border border-pink-200 rounded-dolce-lg p-4">
+            <div className="flex items-start gap-3">
+              <span className="text-2xl">💡</span>
+              <div>
+                <p className="text-sm font-medium text-gray-800 mb-1">Sobre los toppings</p>
+                <p className="text-sm text-gray-600">
+                  Los toppings activos estarán disponibles para que los clientes personalicen sus productos. 
+                  Cada producto incluye 1 topping gratis, los adicionales tienen un costo de <span className="font-semibold">$5 c/u</span>.
+                </p>
               </div>
             </div>
           </div>
-        ))}
-      </div>
-
-      {/* Nota informativa */}
-      <div className="mt-6 bg-pink-50 border border-pink-200 rounded-dolce-lg p-4">
-        <div className="flex items-start gap-3">
-          <span className="text-2xl">💡</span>
-          <div>
-            <p className="text-sm font-medium text-gray-800 mb-1">Sobre los toppings</p>
-            <p className="text-sm text-gray-600">
-              Los toppings activos estarán disponibles para que los clientes personalicen sus productos. 
-              Cada producto incluye 1 topping gratis, los adicionales tienen un costo de <span className="font-semibold">$5 c/u</span>.
-            </p>
-          </div>
-        </div>
-      </div>
-      </>
+        </>
       )}
 
       {/* Modal */}
@@ -254,18 +278,19 @@ export default function ToppingsAdmin() {
             <div className="flex gap-3 mt-6">
               <button
                 onClick={() => setShowModal(false)}
+                disabled={saving}
                 type="button"
-                className="flex-1 px-4 py-3 border border-gray-300 rounded-dolce text-gray-700 hover:bg-gray-50 transition-colors"
+                className="flex-1 px-4 py-3 border border-gray-300 rounded-dolce text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleGuardar}
                 type="button"
-                disabled={!formData.nombre}
+                disabled={!formData.nombre || saving}
                 className="flex-1 px-4 py-3 bg-gradient-to-r from-pink-seli to-pink-deep text-white rounded-dolce hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {editingTopping ? 'Guardar Cambios' : 'Crear Topping'}
+                {saving ? 'Guardando...' : (editingTopping ? 'Guardar Cambios' : 'Crear Topping')}
               </button>
             </div>
           </div>

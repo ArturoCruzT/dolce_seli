@@ -1,112 +1,185 @@
 import { supabase } from './supabase';
-import { Topping } from './types';
-
-// ============================================
-// TOPPINGS
-// ============================================
+import { Topping, ToppingCreate, ToppingDb, convertirToppingDbATopping } from '@/types';
 
 /**
- * Obtener todos los toppings activos
+ * Obtener todos los toppings
  */
-export async function obtenerToppings(): Promise<Topping[]> {
-  const { data, error } = await supabase
-    .from('toppings')
-    .select('*')
-    .eq('activo', true)
-    .order('nombre', { ascending: true });
+export const obtenerToppings = async (): Promise<Topping[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('toppings')
+      .select('*')
+      .order('created_at', { ascending: false });
 
-  if (error) {
-    console.error('Error al obtener toppings:', error);
-    throw error;
+    if (error) {
+      console.error('❌ Error al obtener toppings:', error);
+      return [];
+    }
+
+    console.log('✅ Toppings obtenidos:', data?.length || 0);
+    
+    return (data as ToppingDb[]).map(convertirToppingDbATopping);
+  } catch (error) {
+    console.error('❌ Error inesperado:', error);
+    return [];
   }
-
-  return data || [];
-}
+};
 
 /**
- * Obtener un topping por ID
+ * Obtener toppings activos
  */
-export async function obtenerToppingPorId(id: string): Promise<Topping | null> {
-  const { data, error } = await supabase
-    .from('toppings')
-    .select('*')
-    .eq('id', id)
-    .single();
+export const obtenerToppingsActivos = async (): Promise<Topping[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('toppings')
+      .select('*')
+      .eq('activo', true)
+      .order('nombre', { ascending: true });
 
-  if (error) {
-    console.error('Error al obtener topping por ID:', error);
+    if (error) {
+      console.error('❌ Error al obtener toppings activos:', error);
+      return [];
+    }
+
+    console.log('✅ Toppings activos obtenidos:', data?.length || 0);
+    
+    return (data as ToppingDb[]).map(convertirToppingDbATopping);
+  } catch (error) {
+    console.error('❌ Error inesperado:', error);
+    return [];
+  }
+};
+
+/**
+ * Obtener topping por ID
+ */
+export const obtenerToppingPorId = async (id: string): Promise<Topping | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('toppings')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error) {
+      console.error('❌ Error al obtener topping:', error);
+      return null;
+    }
+
+    return convertirToppingDbATopping(data as ToppingDb);
+  } catch (error) {
+    console.error('❌ Error inesperado:', error);
     return null;
   }
-
-  return data;
-}
+};
 
 /**
- * Crear un nuevo topping
+ * Crear topping
  */
-export async function crearTopping(topping: Omit<Topping, 'id' | 'created_at'>): Promise<Topping> {
-  const { data, error } = await supabase
-    .from('toppings')
-    .insert([topping])
-    .select()
-    .single();
+export const crearTopping = async (topping: ToppingCreate): Promise<Topping | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('toppings')
+      .insert([{
+        nombre: topping.nombre,
+        descripcion: topping.descripcion,
+        emoji: topping.emoji,
+        activo: true,
+      }])
+      .select()
+      .single();
 
-  if (error) {
-    console.error('Error al crear topping:', error);
-    throw error;
+    if (error) {
+      console.error('❌ Error al crear topping:', error);
+      return null;
+    }
+
+    console.log('✅ Topping creado:', data.nombre);
+    
+    return convertirToppingDbATopping(data as ToppingDb);
+  } catch (error) {
+    console.error('❌ Error inesperado:', error);
+    return null;
   }
-
-  return data;
-}
+};
 
 /**
- * Actualizar un topping
+ * Actualizar topping
  */
-export async function actualizarTopping(
+export const actualizarTopping = async (
   id: string,
-  cambios: Partial<Omit<Topping, 'id' | 'created_at'>>
-): Promise<Topping> {
-  const { data, error } = await supabase
-    .from('toppings')
-    .update(cambios)
-    .eq('id', id)
-    .select()
-    .single();
+  cambios: Partial<ToppingCreate>
+): Promise<Topping | null> => {
+  try {
+    const updateData: any = {};
+    
+    if (cambios.nombre !== undefined) updateData.nombre = cambios.nombre;
+    if (cambios.descripcion !== undefined) updateData.descripcion = cambios.descripcion;
+    if (cambios.emoji !== undefined) updateData.emoji = cambios.emoji;
 
-  if (error) {
-    console.error('Error al actualizar topping:', error);
-    throw error;
+    const { data, error } = await supabase
+      .from('toppings')
+      .update(updateData)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('❌ Error al actualizar topping:', error);
+      return null;
+    }
+
+    console.log('✅ Topping actualizado:', data.nombre);
+    
+    return convertirToppingDbATopping(data as ToppingDb);
+  } catch (error) {
+    console.error('❌ Error inesperado:', error);
+    return null;
   }
-
-  return data;
-}
+};
 
 /**
- * Desactivar un topping (soft delete)
+ * Eliminar topping
  */
-export async function desactivarTopping(id: string): Promise<void> {
-  const { error } = await supabase
-    .from('toppings')
-    .update({ activo: false })
-    .eq('id', id);
+export const eliminarTopping = async (id: string): Promise<boolean> => {
+  try {
+    const { error } = await supabase
+      .from('toppings')
+      .delete()
+      .eq('id', id);
 
-  if (error) {
-    console.error('Error al desactivar topping:', error);
-    throw error;
+    if (error) {
+      console.error('❌ Error al eliminar topping:', error);
+      return false;
+    }
+
+    console.log('✅ Topping eliminado');
+    return true;
+  } catch (error) {
+    console.error('❌ Error inesperado:', error);
+    return false;
   }
-}
+};
 
 /**
- * Eliminar un topping (hard delete)
+ * Cambiar estado activo del topping
  */
-export async function eliminarTopping(id: string): Promise<void> {
-  const { error } = await supabase
-    .from('toppings')
-    .delete()
-    .eq('id', id);
+export const cambiarEstadoTopping = async (id: string, activo: boolean): Promise<boolean> => {
+  try {
+    const { error } = await supabase
+      .from('toppings')
+      .update({ activo })
+      .eq('id', id);
 
-  if (error) {
-    console.error('Error al eliminar topping:', error);
-    throw error;
+    if (error) {
+      console.error('❌ Error al cambiar estado:', error);
+      return false;
+    }
+
+    console.log(`✅ Topping ${activo ? 'activado' : 'desactivado'}`);
+    return true;
+  } catch (error) {
+    console.error('❌ Error inesperado:', error);
+    return false;
   }
-}
+};
