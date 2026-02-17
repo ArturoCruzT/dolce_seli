@@ -45,6 +45,7 @@ export interface Paquete extends BaseEntity {
   descripcion: string;
   precio: number;
   tipo: 'paquete';
+  emoji?: string;
   productosIncluidos: ProductoPaqueteItem[];
   toppingsIncluidos: number;
   activo: boolean;

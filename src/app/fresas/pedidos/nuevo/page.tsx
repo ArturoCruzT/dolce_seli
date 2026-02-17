@@ -405,7 +405,7 @@ export default function POSPage() {
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="text-2xl">💝</span>
+                        <span className="text-2xl">{paq.emoji}</span>
                         <p className="font-bold text-gray-800">{paq.nombre}</p>
                       </div>
                       <p className="text-xs text-gray-500 mb-2">{paq.descripcion}</p>

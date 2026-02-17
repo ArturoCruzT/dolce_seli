@@ -49,13 +49,13 @@ const formatMinutos = (min: number): string => {
 type Filtro = 'activos' | EstadoPedido;
 
 const FILTROS: { value: Filtro; label: string; emoji: string }[] = [
-  { value: 'activos',    label: 'Activos',    emoji: '🔥' },
-  { value: 'pendiente',  label: 'Pendiente',  emoji: '⏳' },
-  { value: 'preparando', label: 'Preparando', emoji: '👩‍🍳' },
-  { value: 'listo',      label: 'Listo',      emoji: '✅' },
-  { value: 'en_camino',  label: 'En camino',  emoji: '🛵' },
-  { value: 'entregado',  label: 'Entregado',  emoji: '🎉' },
-  { value: 'cancelado',  label: 'Cancelado',  emoji: '❌' },
+  { value: 'activos',    label: '',    emoji: '🔥' },
+  { value: 'pendiente',  label: '',  emoji: '⏳' },
+  { value: 'preparando', label: '', emoji: '👩‍🍳' },
+  { value: 'listo',      label: '',      emoji: '✅' },
+  { value: 'en_camino',  label: '',  emoji: '🛵' },
+  { value: 'entregado',  label: '',  emoji: '🎉' },
+  { value: 'cancelado',  label: '',  emoji: '❌' },
 ];
 
 // ============================================
