@@ -1,13 +1,22 @@
 'use client';
 
+// ============================================================
+// ARCHIVO: src/app/fresas/pedidos/page.tsx
+// CAMBIOS:
+//  • Auto-refresh cada 60 segundos (antes era 30s)
+//  • Las cards de pedidos en_camino muestran botón "🛵 Ver recorrido"
+//    que lleva a /fresas/pedidos/[id]/repartidor
+// ============================================================
+
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Pedido, EstadoPedido } from '@/types';
 import { obtenerPedidos, actualizarEstadoPedido, eliminarPedido } from '@/lib/pedido.services';
 
-// ============================================
+// ============================================================
 // CONFIGURACIÓN DE ESTADOS
-// ============================================
+// ============================================================
 
 const ESTADOS: {
   value: EstadoPedido; label: string; emoji: string;
@@ -21,6 +30,10 @@ const ESTADOS: {
   { value: 'cancelado',  label: 'Cancelado',  emoji: '❌', color: 'text-red-700',   bgColor: 'bg-red-100' },
 ];
 
+// ⏱️ Auto-refresh: 60 segundos
+const INTERVALO_REFRESH_MS = 60_000;
+
+// 🚨 Alerta si pedido pendiente lleva más de 30 min sin iniciar
 const MINUTOS_ALERTA = 30;
 
 const getEstado = (v: EstadoPedido) => ESTADOS.find(e => e.value === v) ?? ESTADOS[0];
@@ -43,9 +56,9 @@ const formatMinutos = (min: number): string => {
   return `${Math.floor(min / 60)}h ${min % 60}m`;
 };
 
-// ============================================
+// ============================================================
 // FILTRO ACTIVO
-// ============================================
+// ============================================================
 type Filtro = 'activos' | EstadoPedido;
 
 const FILTROS: { value: Filtro; label: string; emoji: string }[] = [
@@ -58,27 +71,31 @@ const FILTROS: { value: Filtro; label: string; emoji: string }[] = [
   { value: 'cancelado',  label: '',  emoji: '❌' },
 ];
 
-// ============================================
+// ============================================================
 // CARD DE PEDIDO
-// ============================================
+// ============================================================
 
 function PedidoCard({ pedido, onCambiarEstado, onEliminar }: {
   pedido: Pedido;
   onCambiarEstado: (id: string, estado: EstadoPedido) => void;
   onEliminar: (id: string) => void;
 }) {
+  const router = useRouter();
   const estado = getEstado(pedido.estado);
   const alerta = esAlerta(pedido);
   const mins = minutosDesde(pedido.created_at);
   const [expandido, setExpandido] = useState(false);
 
   const tieneItems = pedido.items && pedido.items.length > 0;
+  const estaEnCamino = pedido.estado === 'en_camino';
 
   return (
     <div className={`rounded-dolce-lg shadow-dolce overflow-hidden border-2 transition-all ${
       alerta
         ? 'border-orange-400 bg-orange-50 animate-pulse-slow'
-        : 'border-transparent bg-white'
+        : estaEnCamino
+          ? 'border-purple-300 bg-white'
+          : 'border-transparent bg-white'
     }`}>
       {/* Alerta de tiempo */}
       {alerta && (
@@ -86,6 +103,20 @@ function PedidoCard({ pedido, onCambiarEstado, onEliminar }: {
           <span>🚨</span>
           <span>¡Pedido sin iniciar hace {formatMinutos(mins)}!</span>
         </div>
+      )}
+
+      {/* Banner repartidor para pedidos en camino */}
+      {estaEnCamino && (
+        <button
+          onClick={() => router.push(`/fresas/pedidos/${pedido.id}/repartidor`)}
+          className="w-full bg-gradient-to-r from-purple-500 to-purple-700 text-white text-xs font-bold px-4 py-2 flex items-center justify-between active:opacity-80 transition-opacity"
+        >
+          <span className="flex items-center gap-2">
+            <span>🛵</span>
+            <span>Vista del repartidor</span>
+          </span>
+          <span>Ver recorrido →</span>
+        </button>
       )}
 
       <div className="p-4">
@@ -143,7 +174,7 @@ function PedidoCard({ pedido, onCambiarEstado, onEliminar }: {
               className="w-full text-left text-xs text-gray-500 flex items-center justify-between py-1 hover:text-gray-700"
             >
               <span>
-                {pedido.items.length} producto{pedido.items.length !== 1 ? 's' : ''} · 
+                {pedido.items.length} producto{pedido.items.length !== 1 ? 's' : ''} ·{' '}
                 {pedido.items.reduce((s, i) => s + i.cantidad, 0)} unidades
               </span>
               <span>{expandido ? '▲' : '▼'}</span>
@@ -158,7 +189,6 @@ function PedidoCard({ pedido, onCambiarEstado, onEliminar }: {
                         <p className="text-sm font-semibold text-gray-800">
                           {item.cantidad}× {item.productoNombre}
                         </p>
-                        {/* Toppings individuales */}
                         {item.toppingsSeleccionados?.length > 0 && (
                           <div className="flex flex-wrap gap-1 mt-1">
                             {item.toppingsSeleccionados.map((t, ti) => (
@@ -168,7 +198,6 @@ function PedidoCard({ pedido, onCambiarEstado, onEliminar }: {
                             ))}
                           </div>
                         )}
-                        {/* Toppings por componente (paquetes) */}
                         {item.toppingsPorItem?.map((tp, tpi) => (
                           tp.toppings.length > 0 && (
                             <div key={tpi} className="mt-1">
@@ -202,13 +231,34 @@ function PedidoCard({ pedido, onCambiarEstado, onEliminar }: {
 
         {/* Acciones */}
         <div className="flex gap-2 mt-2 flex-wrap">
-          {/* Botón avanzar estado */}
-          {estado.siguiente && (
+          {/* Botón Vista Repartidor (solo en_camino, prominente) */}
+          {estaEnCamino && (
+            <Link
+              href={`/fresas/pedidos/${pedido.id}/repartidor`}
+              className="flex-1 py-2.5 bg-gradient-to-r from-purple-500 to-purple-700 text-white text-sm font-bold rounded-dolce active:scale-95 transition-all text-center min-w-[120px]"
+            >
+              🛵 Iniciar recorrido
+            </Link>
+          )}
+
+          {/* Botón avanzar estado (para estados que NO son en_camino, o como botón secundario) */}
+          {estado.siguiente && !estaEnCamino && (
             <button
               onClick={() => onCambiarEstado(pedido.id, estado.siguiente!)}
               className="flex-1 py-2.5 bg-gradient-to-r from-pink-seli to-pink-deep text-white text-sm font-bold rounded-dolce active:scale-95 transition-all min-w-[100px]"
             >
               {estado.emoji} {estado.accion}
+            </button>
+          )}
+
+          {/* Para en_camino: también botón de avanzar como alternativo */}
+          {estaEnCamino && estado.siguiente && (
+            <button
+              onClick={() => onCambiarEstado(pedido.id, estado.siguiente!)}
+              className="px-3 py-2.5 text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-dolce active:scale-95 transition-all"
+              title="Marcar como entregado directamente"
+            >
+              {estado.accion}
             </button>
           )}
 
@@ -239,29 +289,70 @@ function PedidoCard({ pedido, onCambiarEstado, onEliminar }: {
   );
 }
 
-// ============================================
+// ============================================================
+// INDICADOR DE PRÓXIMO REFRESH
+// ============================================================
+
+function RefreshIndicador({ segundosRestantes }: { segundosRestantes: number }) {
+  return (
+    <div className="flex items-center gap-1.5 text-xs text-gray-400">
+      <div className="relative w-3 h-3">
+        <svg className="w-3 h-3 -rotate-90" viewBox="0 0 12 12">
+          <circle cx="6" cy="6" r="5" fill="none" stroke="#e5e7eb" strokeWidth="2" />
+          <circle
+            cx="6" cy="6" r="5" fill="none" stroke="#f472b6" strokeWidth="2"
+            strokeDasharray={`${2 * Math.PI * 5}`}
+            strokeDashoffset={`${2 * Math.PI * 5 * (1 - segundosRestantes / 60)}`}
+            className="transition-all duration-1000"
+          />
+        </svg>
+      </div>
+      <span>{segundosRestantes}s</span>
+    </div>
+  );
+}
+
+// ============================================================
 // PÁGINA PRINCIPAL
-// ============================================
+// ============================================================
 
 export default function PedidosPage() {
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [loading, setLoading] = useState(true);
   const [filtro, setFiltro] = useState<Filtro>('activos');
   const [reloadKey, setReloadKey] = useState(0);
+  const [segundosRestantes, setSegundosRestantes] = useState(60);
+  const [ultimaActualizacion, setUltimaActualizacion] = useState<Date | null>(null);
 
   const cargar = useCallback(async () => {
     const data = await obtenerPedidos();
     setPedidos(data);
     setLoading(false);
+    setUltimaActualizacion(new Date());
+    setSegundosRestantes(60); // reset countdown
+    console.log('✅ Pedidos actualizados:', data.length, 'pedidos');
   }, []);
 
   useEffect(() => { cargar(); }, [cargar, reloadKey]);
 
-  // Auto-refresh cada 30 segundos
+  // ── Auto-refresh cada 60 segundos ────────────────────────
   useEffect(() => {
-    const interval = setInterval(() => setReloadKey(k => k + 1), 30000);
+    const interval = setInterval(() => {
+      setReloadKey(k => k + 1);
+    }, INTERVALO_REFRESH_MS);
     return () => clearInterval(interval);
   }, []);
+
+  // ── Countdown visual (actualiza cada segundo) ─────────────
+  useEffect(() => {
+    const tick = setInterval(() => {
+      setSegundosRestantes(s => {
+        if (s <= 1) return 60;
+        return s - 1;
+      });
+    }, 1000);
+    return () => clearInterval(tick);
+  }, [reloadKey]); // reset al recargar
 
   const handleCambiarEstado = async (id: string, estado: EstadoPedido) => {
     await actualizarEstadoPedido(id, estado);
@@ -292,6 +383,11 @@ export default function PedidosPage() {
 
   const alertas = pedidos.filter(esAlerta).length;
 
+  const formatUltimaAct = (d: Date | null) => {
+    if (!d) return '';
+    return d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  };
+
   return (
     <div className="min-h-screen bg-cream-dolce">
       {/* HEADER */}
@@ -300,14 +396,21 @@ export default function PedidosPage() {
           <div className="flex items-center justify-between mb-3">
             <div>
               <h1 className="text-xl font-bold text-gray-800">🍓 Pedidos</h1>
-              <p className="text-xs text-gray-500">
-                {contadores.activos} activo{contadores.activos !== 1 ? 's' : ''}
-                {alertas > 0 && (
-                  <span className="ml-2 text-orange-600 font-bold">
-                    · 🚨 {alertas} alerta{alertas !== 1 ? 's' : ''}
-                  </span>
+              <div className="flex items-center gap-2">
+                <p className="text-xs text-gray-500">
+                  {contadores.activos} activo{contadores.activos !== 1 ? 's' : ''}
+                  {alertas > 0 && (
+                    <span className="ml-2 text-orange-600 font-bold">
+                      · 🚨 {alertas} alerta{alertas !== 1 ? 's' : ''}
+                    </span>
+                  )}
+                </p>
+                {/* Indicador countdown */}
+                <RefreshIndicador segundosRestantes={segundosRestantes} />
+                {ultimaActualizacion && (
+                  <span className="text-xs text-gray-300">{formatUltimaAct(ultimaActualizacion)}</span>
                 )}
-              </p>
+              </div>
             </div>
             <Link href="/fresas/pedidos/nuevo"
               className="bg-gradient-to-r from-pink-seli to-pink-deep text-white px-4 py-2.5 rounded-dolce font-bold text-sm active:scale-95 transition-all shadow-dolce-hover">
@@ -375,12 +478,12 @@ export default function PedidosPage() {
           </div>
         )}
 
-        {/* Botón refrescar */}
+        {/* Botón refrescar manual */}
         <button
           onClick={() => setReloadKey(k => k + 1)}
           className="w-full mt-6 py-3 border-2 border-gray-300 text-gray-600 rounded-dolce text-sm font-medium hover:bg-gray-50 active:scale-95 transition-all"
         >
-          🔄 Actualizar pedidos
+          🔄 Actualizar ahora
         </button>
       </div>
     </div>

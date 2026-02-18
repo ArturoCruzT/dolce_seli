@@ -23,7 +23,7 @@ export default function RootLayout({
         <main className="min-h-screen pb-20 md:pb-0">
           {children}
         </main>
-        <Navigation />
+       
       </body>
     </html>
   );
