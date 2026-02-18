@@ -43,10 +43,7 @@ export default function AdminPage() {
       </div>
 
       <div className="container mx-auto px-4 py-8">
-        {/* Test de conexión */}
-        <TestConexion />
-
-        {/* Tabs Navigation */}
+       
         <div className="bg-white rounded-dolce-lg shadow-dolce overflow-hidden mb-6">
           <div className="border-b border-gray-200">
             <div className="flex overflow-x-auto">
