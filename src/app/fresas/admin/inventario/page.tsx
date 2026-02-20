@@ -773,8 +773,8 @@ function TabRecetas({ productos, insumos, onRefresh }: {
     }], { onConflict: 'producto_id,insumo_id' });
     setSaving(false);
     if (error) { alert('Error: ' + error.message); return; }
+    // Limpia solo el insumo y cantidad — mantiene el form abierto y el producto seleccionado
     setNewItem({ insumo_id: '', cantidad: 0, notas: '' });
-    setAdding(false);
     cargarReceta(prodId);
     onRefresh();
   };
