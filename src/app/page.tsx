@@ -5,6 +5,7 @@
 
 import React from 'react';
 import Image from 'next/image';
+import { FooterAdmin } from '@/components/FooterAdmin';
 import heroFreses from '@/images/hero-fresas.png';
 import seliDuo from '@/images/seli-duo.png';
 import seliClasico from '@/images/seli-clasico.png';
@@ -14,7 +15,7 @@ import seliFamiliar from '@/images/familia-seli.png';
 import momentoDolce from '@/images/momento dolce.png';
 import paraCompartir from '@/images/momento dolce.png';
 import esenciaSeli from '@/images/esencia-seli.png';
-import oreoEdicion from '@/images/oreo.png'; // 🔧 pon tu imagen en: src/images/edicion-oreo.png
+import oreoEdicion from '@/images/edicion-oreo.png'; // 🔧 pon tu imagen en: src/images/edicion-oreo.png
 
 // ══════════════════════════════════════════════════════════════════════════════
 // TIPOS
@@ -70,7 +71,7 @@ interface PuntoVenta {
 // CONSTANTES
 // ══════════════════════════════════════════════════════════════════════════════
 
-const WA_NUMERO = '7221645362';
+const WA_NUMERO = '521XXXXXXXXXX';
 
 const buildWAUrl = (mensaje: string): string =>
   `https://wa.me/${WA_NUMERO}?text=${encodeURIComponent(mensaje)}`;
@@ -272,13 +273,14 @@ const HeroSection: React.FC = () => (
       <span className="animate-fade-up" style={{ fontFamily: "'Great Vibes',cursive", fontSize: 'clamp(1.5rem,4vw,2.5rem)', color: '#F7A8B8', letterSpacing: 3, marginBottom: '0.5rem' }}>
         {BRAND.nombre}
       </span>
-      {/* ── Hero image ── */}
+      {/* ── Hero image ── clic navega a /fresas */}
       {(() => {
         const HERO_IMAGEN = true;
         return (
-          <div
+          <a
+            href="/fresas"
             className="animate-fade-up"
-            style={{ width: 'clamp(240px,40vw,420px)', height: 'clamp(240px,40vw,420px)', borderRadius: '50%', border: '2px solid rgba(247,168,184,0.3)', boxShadow: '0 0 80px rgba(232,93,117,0.3),0 30px 80px rgba(0,0,0,0.6)', position: 'relative', overflow: 'hidden', marginBottom: '2rem', background: 'rgba(247,168,184,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', animationDelay: '150ms' }}
+            style={{ width: 'clamp(240px,40vw,420px)', height: 'clamp(240px,40vw,420px)', borderRadius: '50%', border: '2px solid rgba(247,168,184,0.3)', boxShadow: '0 0 80px rgba(232,93,117,0.3),0 30px 80px rgba(0,0,0,0.6)', position: 'relative', overflow: 'hidden', marginBottom: '2rem', background: 'rgba(247,168,184,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', animationDelay: '150ms', cursor: 'pointer', transition: 'transform 0.2s,box-shadow 0.2s', textDecoration: 'none' }}
           >
             {HERO_IMAGEN ? (
               <Image src={heroFreses} alt="Fresas Dolce Seli" fill style={{ objectFit: 'cover' }} priority />
@@ -292,7 +294,7 @@ const HeroSection: React.FC = () => (
                 </svg>
               </div>
             )}
-          </div>
+          </a>
         );
       })()}
       <h1 className="animate-fade-up" style={{ fontFamily: "'Playfair Display',serif", fontSize: 'clamp(2.2rem,6vw,5.5rem)', fontWeight: 900, lineHeight: 1.1, color: '#fff', maxWidth: 800, marginBottom: '1rem', animationDelay: '250ms' }}>
@@ -526,13 +528,7 @@ const UbicacionSection: React.FC = () => (
   </section>
 );
 
-const Footer: React.FC = () => (
-  <footer style={{ background: '#0a0a0a', borderTop: '1px solid rgba(247,168,184,0.08)', textAlign: 'center', padding: '3rem 1.5rem' }}>
-    <p style={{ fontFamily: "'Great Vibes',cursive", fontSize: '3rem', color: '#F7A8B8', marginBottom: '0.25rem' }}>{BRAND.nombre}</p>
-    <p style={{ fontSize: '0.82rem', color: 'rgba(255,255,255,0.28)', fontStyle: 'italic' }}>{BRAND.tagline}</p>
-    <p style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.18)', marginTop: '0.5rem' }}>{BRAND.ciudad} 🍓</p>
-  </footer>
-);
+// Footer movido a src/components/FooterAdmin.tsx (Client Component con acceso admin oculto)
 
 const StickyBar: React.FC = () => (
   <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 50, background: 'rgba(17,17,17,0.95)', backdropFilter: 'blur(20px)', borderTop: '1px solid rgba(247,168,184,0.12)', display: 'flex', justifyContent: 'center', gap: '0.6rem', padding: '0.7rem 1rem' }}>
@@ -584,7 +580,7 @@ export default function HomePage() {
         <CalidadSection />
         <PedidosSection />
         <UbicacionSection />
-        <Footer />
+        <FooterAdmin nombre={BRAND.nombre} tagline={BRAND.tagline} ciudad={BRAND.ciudad} />
         <div className="sticky-spacer" />
       </main>
       <StickyBar />

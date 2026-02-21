@@ -6,6 +6,7 @@
 import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import LogoutButton from '@/components/auth/LogoutButton';
 
 import heroFreses from '@/images/hero-fresas.png';
 
@@ -95,14 +96,19 @@ export default function AdminWelcomePage() {
         aria-hidden
         className="pointer-events-none fixed inset-0 opacity-[0.05]"
         style={{
-          backgroundImage:
-            'radial-gradient(circle, rgba(247,168,184,1) 1px, transparent 1px)',
+          backgroundImage: 'radial-gradient(circle, rgba(247,168,184,1) 1px, transparent 1px)',
           backgroundSize: '64px 64px',
         }}
       />
 
       {/* Contenedor */}
       <div className="relative mx-auto flex min-h-screen max-w-6xl flex-col px-5 py-10">
+
+        {/* Barra superior con botón de sesión */}
+        <div className="flex justify-end mb-6">
+          <LogoutButton />
+        </div>
+
         {/* Header */}
         <header className="flex flex-col items-center gap-5 text-center">
           <div className="relative h-[140px] w-[140px] overflow-hidden rounded-full border border-white/10 bg-white/5 shadow-[0_30px_90px_rgba(0,0,0,0.55)]">
@@ -135,7 +141,6 @@ export default function AdminWelcomePage() {
         <section className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {ACTIONS.map((a) => {
             const s = accentStyles(a.accent);
-
             return (
               <Link
                 key={a.id}
@@ -163,21 +168,10 @@ export default function AdminWelcomePage() {
                 />
 
                 <div className="flex items-start justify-between gap-3">
-                  <div
-                    className={[
-                      'flex h-12 w-12 items-center justify-center rounded-xl border',
-                      s.iconBg,
-                    ].join(' ')}
-                  >
+                  <div className={['flex h-12 w-12 items-center justify-center rounded-xl border', s.iconBg].join(' ')}>
                     <span className="text-2xl">{a.emoji}</span>
                   </div>
-
-                  <span
-                    className={[
-                      'inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold',
-                      s.chip,
-                    ].join(' ')}
-                  >
+                  <span className={['inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold', s.chip].join(' ')}>
                     Entrar →
                   </span>
                 </div>
