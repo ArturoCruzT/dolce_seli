@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo } from 'react';
 import { ProductoIndividual, Paquete, ItemPedido } from '@/types';
 
 interface ResumenPedidoProps {
@@ -23,15 +24,17 @@ export default function ResumenPedido({
   total,
   precioToppingExtra,
 }: ResumenPedidoProps) {
+  const mapIncluidos = useMemo(() => {
+    const m = new Map<string, number>();
+
+    productosIndividuales.forEach((p) => m.set(`individual:${p.id}`, p.toppingsIncluidos ?? 0));
+    paquetes.forEach((p) => m.set(`paquete:${p.id}`, p.toppingsIncluidos ?? 0));
+
+    return m;
+  }, [productosIndividuales, paquetes]);
+
   const getToppingsIncluidos = (item: ItemPedido): number => {
-    if (item.tipo === 'individual') {
-      const producto = productosIndividuales.find(p => p.id === item.productoId);
-      return producto?.toppingsIncluidos || 0;
-    } else if (item.tipo === 'paquete') {
-      const paquete = paquetes.find(p => p.id === item.productoId);
-      return paquete?.toppingsIncluidos || 0;
-    }
-    return 0;
+    return mapIncluidos.get(`${item.tipo}:${item.productoId}`) ?? 0;
   };
 
   const calcularToppingsExtras = (item: ItemPedido): number => {
@@ -45,44 +48,61 @@ export default function ResumenPedido({
   };
 
   return (
-    <div className="bg-white rounded-dolce-lg shadow-dolce p-6">
-      <h3 className="text-xl font-bold text-gray-800 mb-4">
-        🛒 Resumen del Pedido
-      </h3>
+    <div className="rounded-2xl border border-white/10 bg-white/[0.04] backdrop-blur-xl shadow-[0_18px_55px_rgba(0,0,0,0.45)] p-6">
+      <div className="flex items-start justify-between gap-3 mb-4">
+        <div>
+          <h3 className="text-xl font-black text-white">🛒 Resumen del pedido</h3>
+          <p className="text-sm text-white/60">
+            {items.length === 0 ? 'Agrega productos para ver el total.' : `${items.length} item${items.length !== 1 ? 's' : ''} en el pedido`}
+          </p>
+        </div>
+
+        <div className="text-right">
+          <p className="text-xs text-white/50">Total</p>
+          <p className="text-2xl font-black text-[#E85D75]">${total.toFixed(2)}</p>
+        </div>
+      </div>
 
       {items.length === 0 ? (
-        <div className="text-center py-8">
-          <div className="text-4xl mb-2">🛍️</div>
-          <p className="text-gray-500">No hay productos en el pedido</p>
+        <div className="text-center py-10 rounded-2xl border border-white/10 bg-black/30">
+          <div className="text-5xl mb-2">🛍️</div>
+          <p className="text-white/60">No hay productos en el pedido</p>
         </div>
       ) : (
         <>
           {/* Lista de items */}
-          <div className="space-y-4 mb-6 max-h-96 overflow-y-auto">
+          <div className="space-y-3 mb-6 max-h-96 overflow-y-auto pr-1">
             {items.map((item, index) => {
+              const incluidos = getToppingsIncluidos(item);
               const toppingsExtras = calcularToppingsExtras(item);
               const costoToppingsExtras = calcularCostoToppingsExtras(item);
-              const subtotalItem = (item.precioUnitario * item.cantidad) + costoToppingsExtras;
+
+              // Nota:
+              // - Si en tu flujo item.precioUnitario YA incluye extras, entonces NO sumes costoToppingsExtras aquí.
+              // - Si item.precioUnitario es el precio base, entonces sí lo sumas.
+              const subtotalItem = item.precioUnitario * item.cantidad + costoToppingsExtras;
 
               return (
                 <div
                   key={index}
-                  className="p-4 bg-gray-50 rounded-dolce border border-gray-200"
+                  className="rounded-2xl border border-white/10 bg-white/5 p-4"
                 >
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="flex-1">
-                      <h4 className="font-bold text-gray-800">
-                        {item.tipo === 'paquete' && '💝 '}
+                  <div className="flex items-start justify-between gap-3 mb-2">
+                    <div className="min-w-0">
+                      <h4 className="font-black text-white/90">
+                        {item.tipo === 'paquete' ? '💝 ' : '🍓 '}
                         {item.productoNombre}
                       </h4>
-                      <p className="text-sm text-gray-600">
-                        Cantidad: {item.cantidad} × ${item.precioUnitario}
+                      <p className="text-sm text-white/60">
+                        Cantidad: <b className="text-white/80">{item.cantidad}</b> · Unit: <b className="text-white/80">${item.precioUnitario.toFixed(2)}</b>
                       </p>
                     </div>
+
                     <button
                       type="button"
                       onClick={() => onEliminarItem(index)}
-                      className="text-red-600 hover:bg-red-50 p-2 rounded-lg transition-colors"
+                      className="shrink-0 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-semibold text-red-200 hover:bg-red-500/10 active:scale-[0.99] transition"
+                      title="Eliminar item"
                     >
                       🗑️
                     </button>
@@ -90,43 +110,48 @@ export default function ResumenPedido({
 
                   {/* Toppings */}
                   {item.toppingsSeleccionados.length > 0 && (
-                    <div className="mt-2 pt-2 border-t border-gray-200">
-                      <p className="text-xs font-medium text-gray-600 mb-1">
-                        Toppings:
+                    <div className="mt-3 pt-3 border-t border-white/10">
+                      <p className="text-xs font-semibold text-white/60 mb-2">
+                        Toppings <span className="text-white/35">({item.toppingsSeleccionados.length})</span>
+                        <span className="ml-2 text-white/35">· Incluidos: {incluidos}</span>
                       </p>
-                      <div className="flex flex-wrap gap-1">
+
+                      <div className="flex flex-wrap gap-2">
                         {item.toppingsSeleccionados.map((topping, tIndex) => {
-                          const isIncluido = tIndex < getToppingsIncluidos(item);
+                          const isIncluido = tIndex < incluidos;
                           return (
                             <span
                               key={tIndex}
-                              className={`text-xs px-2 py-1 rounded-full ${
+                              className={`text-xs px-2.5 py-1 rounded-full border ${
                                 isIncluido
-                                  ? 'bg-green-100 text-green-700'
-                                  : 'bg-pink-100 text-pink-700'
+                                  ? 'bg-emerald-400/10 text-emerald-200 border-emerald-300/20'
+                                  : 'bg-[#E85D75]/10 text-[#ffd0d9] border-[#E85D75]/25'
                               }`}
+                              title={isIncluido ? 'Incluido' : 'Extra'}
                             >
                               {topping.toppingNombre}
-                              {!isIncluido && ' +$5'}
+                              {!isIncluido && (
+                                <span className="ml-1 text-[11px] opacity-90">
+                                  +${precioToppingExtra}
+                                </span>
+                              )}
                             </span>
                           );
                         })}
                       </div>
+
+                      {toppingsExtras > 0 && (
+                        <div className="mt-2 text-xs text-[#ffd0d9]">
+                          +${costoToppingsExtras.toFixed(2)} por {toppingsExtras} topping{toppingsExtras !== 1 ? 's' : ''} extra{toppingsExtras !== 1 ? 's' : ''}
+                        </div>
+                      )}
                     </div>
                   )}
 
-                  {/* Costo toppings extras */}
-                  {toppingsExtras > 0 && (
-                    <div className="mt-2 text-xs text-pink-deep">
-                      + ${costoToppingsExtras} por {toppingsExtras} topping{toppingsExtras !== 1 ? 's' : ''} extra{toppingsExtras !== 1 ? 's' : ''}
-                    </div>
-                  )}
-
-                  {/* Subtotal del item */}
-                  <div className="mt-2 pt-2 border-t border-gray-200 text-right">
-                    <span className="font-bold text-gray-800">
-                      Subtotal: ${subtotalItem.toFixed(2)}
-                    </span>
+                  {/* Subtotal item */}
+                  <div className="mt-3 pt-3 border-t border-white/10 flex items-center justify-between">
+                    <span className="text-xs text-white/45">Subtotal item</span>
+                    <span className="font-black text-white/90">${subtotalItem.toFixed(2)}</span>
                   </div>
                 </div>
               );
@@ -134,23 +159,27 @@ export default function ResumenPedido({
           </div>
 
           {/* Totales */}
-          <div className="border-t border-gray-200 pt-4 space-y-2">
-            <div className="flex justify-between text-gray-700">
-              <span>Subtotal:</span>
-              <span className="font-medium">${subtotal.toFixed(2)}</span>
+          <div className="rounded-2xl border border-white/10 bg-black/30 p-4 space-y-2">
+            <div className="flex justify-between text-white/70">
+              <span>Subtotal</span>
+              <span className="font-semibold text-white/85">${subtotal.toFixed(2)}</span>
             </div>
 
-            <div className="flex justify-between text-gray-700">
-              <span>Envío:</span>
-              <span className="font-medium">
+            <div className="flex justify-between text-white/70">
+              <span>Envío</span>
+              <span className="font-semibold text-white/85">
                 {costoEnvio === 0 ? 'Gratis' : `$${costoEnvio.toFixed(2)}`}
               </span>
             </div>
 
-            <div className="flex justify-between text-lg font-bold text-gray-800 pt-2 border-t border-gray-300">
-              <span>Total:</span>
-              <span className="text-pink-deep">${total.toFixed(2)}</span>
+            <div className="pt-3 mt-3 border-t border-white/10 flex justify-between text-lg font-black text-white">
+              <span>Total</span>
+              <span className="text-[#E85D75]">${total.toFixed(2)}</span>
             </div>
+
+            <p className="text-[11px] text-white/35 mt-1">
+              Extra topping: ${precioToppingExtra} · Los extras se calculan por cantidad.
+            </p>
           </div>
         </>
       )}

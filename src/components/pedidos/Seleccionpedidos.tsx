@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ProductoIndividual, Paquete, Topping, ItemPedido } from '@/types';
 
 interface SeleccionProductoProps {
@@ -11,6 +11,8 @@ interface SeleccionProductoProps {
 }
 
 type TipoSeleccion = 'individual' | 'paquete';
+
+const TOPPING_EXTRA_PRECIO = 5;
 
 export default function SeleccionProducto({
   productosIndividuales,
@@ -23,19 +25,28 @@ export default function SeleccionProducto({
   const [cantidad, setCantidad] = useState(1);
   const [toppingsSeleccionados, setToppingsSeleccionados] = useState<string[]>([]);
 
-  const productoActual = tipoSeleccion === 'individual'
-    ? productosIndividuales.find(p => p.id === productoSeleccionado)
-    : paquetes.find(p => p.id === productoSeleccionado);
+  const productoActual = useMemo(() => {
+    return tipoSeleccion === 'individual'
+      ? productosIndividuales.find((p) => p.id === productoSeleccionado)
+      : paquetes.find((p) => p.id === productoSeleccionado);
+  }, [tipoSeleccion, productoSeleccionado, productosIndividuales, paquetes]);
 
-  const toppingsIncluidos = productoActual?.toppingsIncluidos || 0;
+  const toppingsIncluidos = productoActual?.toppingsIncluidos ?? 0;
   const toppingsExtras = Math.max(0, toppingsSeleccionados.length - toppingsIncluidos);
 
+  const totalUnitario = (productoActual?.precio ?? 0) + toppingsExtras * TOPPING_EXTRA_PRECIO;
+  const totalLinea = totalUnitario * cantidad;
+
+  const resetSeleccion = () => {
+    setProductoSeleccionado('');
+    setCantidad(1);
+    setToppingsSeleccionados([]);
+  };
+
   const toggleTopping = (toppingId: string) => {
-    if (toppingsSeleccionados.includes(toppingId)) {
-      setToppingsSeleccionados(toppingsSeleccionados.filter(id => id !== toppingId));
-    } else {
-      setToppingsSeleccionados([...toppingsSeleccionados, toppingId]);
-    }
+    setToppingsSeleccionados((prev) =>
+      prev.includes(toppingId) ? prev.filter((id) => id !== toppingId) : [...prev, toppingId]
+    );
   };
 
   const handleAgregar = () => {
@@ -44,65 +55,72 @@ export default function SeleccionProducto({
       return;
     }
 
-    const toppingsConNombre = toppingsSeleccionados.map(id => {
-      const topping = toppingsDisponibles.find(t => t.id === id);
-      return {
-        toppingId: id,
-        toppingNombre: topping?.nombre || '',
-      };
+    const toppingsConNombre = toppingsSeleccionados.map((id) => {
+      const topping = toppingsDisponibles.find((t) => t.id === id);
+      return { toppingId: id, toppingNombre: topping?.nombre || '' };
     });
 
+    // ✅ OJO: tu ItemPedido ya trae toppingsSeleccionados y precioUnitario.
+    // Aquí precioUnitario incluye extras para que el total del pedido sea correcto.
     const item: ItemPedido = {
       tipo: tipoSeleccion,
       productoId: productoSeleccionado,
       productoNombre: productoActual.nombre,
       cantidad,
-      precioUnitario: productoActual.precio,
+      precioUnitario: totalUnitario,
       toppingsSeleccionados: toppingsConNombre,
     };
 
     onAgregarItem(item);
-
-    // Limpiar selección
-    setProductoSeleccionado('');
-    setCantidad(1);
-    setToppingsSeleccionados([]);
+    resetSeleccion();
   };
 
   return (
-    <div className="bg-white rounded-dolce-lg shadow-dolce p-6">
-      <h2 className="text-xl font-bold text-gray-800 mb-4">
-        🍓 Agregar Productos
-      </h2>
+    <div className="rounded-2xl border border-white/10 bg-white/[0.04] backdrop-blur-xl shadow-[0_18px_55px_rgba(0,0,0,0.45)] p-6">
+      {/* Header */}
+      <div className="flex items-start justify-between gap-3 mb-5">
+        <div>
+          <h2 className="text-xl font-black text-white">🍓 Agregar productos</h2>
+          <p className="text-sm text-white/60">Selecciona producto, cantidad y toppings (si aplica).</p>
+        </div>
+
+        {/* Total preview */}
+        <div className="text-right">
+          <p className="text-xs text-white/50">Total</p>
+          <p className="text-2xl font-black text-[#E85D75]">${Number.isFinite(totalLinea) ? totalLinea.toFixed(2) : '0.00'}</p>
+          <p className="text-[11px] text-white/45">
+            Unit: ${Number.isFinite(totalUnitario) ? totalUnitario.toFixed(2) : '0.00'}
+          </p>
+        </div>
+      </div>
 
       {/* Selector de tipo */}
-      <div className="flex gap-4 mb-6">
+      <div className="grid grid-cols-2 gap-3 mb-5">
         <button
           type="button"
           onClick={() => {
             setTipoSeleccion('individual');
-            setProductoSeleccionado('');
-            setToppingsSeleccionados([]);
+            resetSeleccion();
           }}
-          className={`flex-1 px-4 py-3 rounded-dolce font-medium transition-all ${
+          className={`px-4 py-3 rounded-2xl font-semibold transition-all border ${
             tipoSeleccion === 'individual'
-              ? 'bg-gradient-to-r from-pink-seli to-pink-deep text-white shadow-dolce'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              ? 'bg-gradient-to-r from-[#E85D75] to-[#c0304a] text-white border-white/10 shadow-[0_20px_80px_rgba(232,93,117,0.18)]'
+              : 'bg-white/5 text-white/75 border-white/10 hover:bg-white/8'
           }`}
         >
-          🍓 Producto Individual
+          🍓 Individual
         </button>
+
         <button
           type="button"
           onClick={() => {
             setTipoSeleccion('paquete');
-            setProductoSeleccionado('');
-            setToppingsSeleccionados([]);
+            resetSeleccion();
           }}
-          className={`flex-1 px-4 py-3 rounded-dolce font-medium transition-all ${
+          className={`px-4 py-3 rounded-2xl font-semibold transition-all border ${
             tipoSeleccion === 'paquete'
-              ? 'bg-gradient-to-r from-pink-seli to-pink-deep text-white shadow-dolce'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              ? 'bg-gradient-to-r from-[#E85D75] to-[#c0304a] text-white border-white/10 shadow-[0_20px_80px_rgba(232,93,117,0.18)]'
+              : 'bg-white/5 text-white/75 border-white/10 hover:bg-white/8'
           }`}
         >
           💝 Paquete
@@ -111,129 +129,161 @@ export default function SeleccionProducto({
 
       {/* Selector de producto */}
       <div className="mb-4">
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-semibold text-white/80 mb-2">
           Selecciona {tipoSeleccion === 'individual' ? 'producto' : 'paquete'}
         </label>
-        <select
-          value={productoSeleccionado}
-          onChange={(e) => {
-            setProductoSeleccionado(e.target.value);
-            setToppingsSeleccionados([]);
-          }}
-          className="w-full px-4 py-2 border border-gray-300 rounded-dolce focus:ring-2 focus:ring-pink-deep focus:border-transparent"
-        >
-          <option value="">-- Selecciona una opción --</option>
-          {tipoSeleccion === 'individual'
-            ? productosIndividuales.map((prod) => (
-                <option key={prod.id} value={prod.id}>
-                  {prod.emoji} {prod.nombre} - ${prod.precio}
-                </option>
-              ))
-            : paquetes.map((paq) => (
-                <option key={paq.id} value={paq.id}>
-                  💝 {paq.nombre} - ${paq.precio}
-                </option>
-              ))}
-        </select>
+
+        <div className="relative">
+          <select
+            value={productoSeleccionado}
+            onChange={(e) => {
+              setProductoSeleccionado(e.target.value);
+              setToppingsSeleccionados([]);
+            }}
+            className="w-full appearance-none px-4 py-3 rounded-2xl border border-white/10 bg-black/35 text-white focus:outline-none focus:ring-2 focus:ring-[#E85D75]/60"
+          >
+            <option value="">-- Selecciona una opción --</option>
+
+            {tipoSeleccion === 'individual'
+              ? productosIndividuales.map((prod) => (
+                  <option key={prod.id} value={prod.id}>
+                    {prod.emoji} {prod.nombre} - ${prod.precio}
+                  </option>
+                ))
+              : paquetes.map((paq) => (
+                  <option key={paq.id} value={paq.id}>
+                    💝 {paq.nombre} - ${paq.precio}
+                  </option>
+                ))}
+          </select>
+
+          <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-white/50">▾</span>
+        </div>
       </div>
 
       {/* Información del producto seleccionado */}
       {productoActual && (
-        <div className="mb-4 p-4 bg-pink-50 rounded-dolce border border-pink-200">
-          <p className="text-sm text-gray-700 mb-2">
-            <strong>Descripción:</strong> {productoActual.descripcion}
-          </p>
-          <p className="text-sm text-pink-deep font-medium">
-            ✨ Incluye {toppingsIncluidos} topping{toppingsIncluidos !== 1 ? 's' : ''} gratis
-          </p>
+        <div className="mb-4 rounded-2xl border border-white/10 bg-white/[0.05] p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-white truncate">
+                {tipoSeleccion === 'individual' ? '🍓' : '💝'} {productoActual.nombre}
+              </p>
+              {productoActual.descripcion && (
+                <p className="text-sm text-white/65 mt-1 leading-relaxed">{productoActual.descripcion}</p>
+              )}
+            </div>
+
+            <div className="text-right shrink-0">
+              <p className="text-xs text-white/50">Base</p>
+              <p className="text-lg font-black text-white">${(productoActual.precio ?? 0).toFixed(2)}</p>
+            </div>
+          </div>
+
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/30 px-3 py-1 text-xs text-white/70">
+              ✨ Incluye <b className="text-white/90">{toppingsIncluidos}</b> topping{toppingsIncluidos === 1 ? '' : 's'}
+            </span>
+
+            {toppingsExtras > 0 && (
+              <span className="inline-flex items-center gap-2 rounded-full border border-[#E85D75]/25 bg-[#E85D75]/10 px-3 py-1 text-xs text-[#ffd0d9]">
+                +${toppingsExtras * TOPPING_EXTRA_PRECIO} por {toppingsExtras} extra{toppingsExtras === 1 ? '' : 's'}
+              </span>
+            )}
+          </div>
         </div>
       )}
 
-      {/* Selector de cantidad */}
-      <div className="mb-6">
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Cantidad
-        </label>
+      {/* Cantidad */}
+      <div className="mb-5">
+        <label className="block text-sm font-semibold text-white/80 mb-2">Cantidad</label>
+
         <div className="flex items-center gap-3">
           <button
             type="button"
-            onClick={() => setCantidad(Math.max(1, cantidad - 1))}
-            className="w-10 h-10 bg-gray-200 rounded-dolce-sm hover:bg-gray-300 transition-colors font-bold"
+            onClick={() => setCantidad((c) => Math.max(1, c - 1))}
+            className="w-11 h-11 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/8 text-white font-black transition"
           >
             −
           </button>
+
           <input
             type="number"
             value={cantidad}
             onChange={(e) => setCantidad(Math.max(1, parseInt(e.target.value) || 1))}
-            className="w-20 px-4 py-2 border border-gray-300 rounded-dolce text-center focus:ring-2 focus:ring-pink-deep focus:border-transparent"
-            min="1"
+            min={1}
+            className="w-24 px-4 py-3 rounded-2xl border border-white/10 bg-black/35 text-white text-center font-semibold focus:outline-none focus:ring-2 focus:ring-[#E85D75]/60"
           />
+
           <button
             type="button"
-            onClick={() => setCantidad(cantidad + 1)}
-            className="w-10 h-10 bg-gray-200 rounded-dolce-sm hover:bg-gray-300 transition-colors font-bold"
+            onClick={() => setCantidad((c) => c + 1)}
+            className="w-11 h-11 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/8 text-white font-black transition"
           >
             +
           </button>
+
+          {/* Mini hint */}
+          <span className="text-xs text-white/45">
+            Total: <b className="text-white/80">${totalLinea.toFixed(2)}</b>
+          </span>
         </div>
       </div>
 
-      {/* Selector de toppings */}
+      {/* Toppings */}
       {productoActual && (
         <div className="mb-6">
-          <div className="flex items-center justify-between mb-3">
-            <label className="block text-sm font-medium text-gray-700">
-              Toppings ({toppingsSeleccionados.length} seleccionados)
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <label className="block text-sm font-semibold text-white/80">
+              Toppings <span className="text-white/40">({toppingsSeleccionados.length})</span>
             </label>
-            {toppingsExtras > 0 && (
-              <span className="text-sm text-pink-deep font-medium">
-                +${toppingsExtras * 5} por {toppingsExtras} topping{toppingsExtras !== 1 ? 's' : ''} extra{toppingsExtras !== 1 ? 's' : ''}
-              </span>
-            )}
+
+            <span className="text-xs text-white/45">
+              Extra: <b className="text-white/80">${TOPPING_EXTRA_PRECIO}</b> c/u
+            </span>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {toppingsDisponibles.map((topping) => {
               const isSelected = toppingsSeleccionados.includes(topping.id);
               const index = toppingsSeleccionados.indexOf(topping.id);
-              const isIncluido = index < toppingsIncluidos;
+              const isIncluido = isSelected && index < toppingsIncluidos;
 
               return (
                 <button
                   key={topping.id}
                   type="button"
                   onClick={() => toggleTopping(topping.id)}
-                  className={`p-3 rounded-dolce border-2 transition-all ${
+                  className={`p-3 rounded-2xl border transition-all text-left ${
                     isSelected
                       ? isIncluido
-                        ? 'border-green-500 bg-green-50'
-                        : 'border-pink-deep bg-pink-50'
-                      : 'border-gray-200 hover:border-pink-seli'
+                        ? 'border-emerald-300/40 bg-emerald-400/10'
+                        : 'border-[#E85D75]/45 bg-[#E85D75]/10'
+                      : 'border-white/10 bg-white/5 hover:bg-white/8'
                   }`}
                 >
-                  <div className="text-2xl mb-1">{topping.emoji}</div>
-                  <div className="text-xs font-medium text-gray-700">
-                    {topping.nombre}
-                  </div>
-                  {isSelected && (
-                    <div className="text-xs mt-1">
-                      {isIncluido ? (
-                        <span className="text-green-600">✓ Incluido</span>
-                      ) : (
-                        <span className="text-pink-deep">+$5</span>
+                  <div className="flex items-center gap-2">
+                    <div className="text-2xl">{topping.emoji ?? '✨'}</div>
+                    <div className="min-w-0">
+                      <div className="text-xs font-semibold text-white/85 truncate">{topping.nombre}</div>
+                      {isSelected && (
+                        <div className="text-[11px] mt-0.5">
+                          {isIncluido ? (
+                            <span className="text-emerald-200">✓ Incluido</span>
+                          ) : (
+                            <span className="text-[#ffd0d9]">+${TOPPING_EXTRA_PRECIO}</span>
+                          )}
+                        </div>
                       )}
                     </div>
-                  )}
+                  </div>
                 </button>
               );
             })}
           </div>
 
           {toppingsDisponibles.length === 0 && (
-            <p className="text-sm text-gray-500 text-center py-4">
-              No hay toppings disponibles
-            </p>
+            <p className="text-sm text-white/55 text-center py-4">No hay toppings disponibles</p>
           )}
         </div>
       )}
@@ -243,9 +293,12 @@ export default function SeleccionProducto({
         type="button"
         onClick={handleAgregar}
         disabled={!productoSeleccionado}
-        className="w-full px-6 py-3 bg-gradient-to-r from-pink-seli to-pink-deep text-white rounded-dolce font-medium hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+        className="w-full px-6 py-3 rounded-2xl font-bold transition-all border border-white/10
+                   bg-gradient-to-r from-[#E85D75] to-[#c0304a] text-white
+                   hover:shadow-[0_20px_80px_rgba(232,93,117,0.18)] active:scale-[0.99]
+                   disabled:opacity-40 disabled:cursor-not-allowed"
       >
-        ➕ Agregar al Pedido
+        ➕ Agregar al pedido
       </button>
     </div>
   );

@@ -473,7 +473,7 @@ export default function PedidosPage() {
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <Link
-                  href="/admin"
+                  href="/fresas"
                   className="text-xs font-semibold text-white/70 hover:text-white inline-flex items-center gap-1"
                   title="Volver al panel"
                 >
@@ -503,7 +503,7 @@ export default function PedidosPage() {
 
             <div className="shrink-0 flex items-center gap-2">
               <Link
-                href="/admin/pedidos/nuevo"
+                href="/fresas/pedidos/nuevo"
                 className="bg-gradient-to-r from-[#E85D75] to-[#c0304a] text-white px-4 py-2.5 rounded-full font-bold text-sm active:scale-95 transition-all shadow-[0_18px_55px_rgba(0,0,0,0.45)]"
               >
                 + Nuevo
@@ -561,7 +561,7 @@ export default function PedidosPage() {
               {filtro === 'activos' ? 'No hay pedidos activos en este momento' : `No hay pedidos con estado "${filtro}"`}
             </p>
             <Link
-              href="/admin/pedidos/nuevo"
+              href="/fresas/pedidos/nuevo"
               className="bg-gradient-to-r from-[#E85D75] to-[#c0304a] text-white px-6 py-3 rounded-full font-bold active:scale-95 transition-all"
             >
               Crear primer pedido
