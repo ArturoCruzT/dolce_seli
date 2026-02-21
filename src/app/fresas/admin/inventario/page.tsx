@@ -1163,3 +1163,4 @@ function EmptyRow({ cols, msg }: { cols: number; msg: string }) {
       <td colSpan={cols} className="px-4 py-10 text-center text-gray-400">{msg}</td>
     </tr>
   );
+}

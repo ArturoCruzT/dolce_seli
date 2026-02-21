@@ -30,7 +30,7 @@ interface Producto {
   badge?: string;
   incluye?: string[];
   toppingsSugeridos?: string;
-  imagen?: string;
+  imagen?: import('next/image').StaticImageData;
 }
 
 interface OpcionPedido {
@@ -70,7 +70,7 @@ interface PuntoVenta {
 // CONSTANTES
 // ══════════════════════════════════════════════════════════════════════════════
 
-const WA_NUMERO = '7221645362';
+const WA_NUMERO = '521XXXXXXXXXX';
 
 const buildWAUrl = (mensaje: string): string =>
   `https://wa.me/${WA_NUMERO}?text=${encodeURIComponent(mensaje)}`;
