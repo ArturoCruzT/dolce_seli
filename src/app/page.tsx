@@ -70,7 +70,7 @@ interface PuntoVenta {
 // CONSTANTES
 // ══════════════════════════════════════════════════════════════════════════════
 
-const WA_NUMERO = '521XXXXXXXXXX';
+const WA_NUMERO = '7221645362';
 
 const buildWAUrl = (mensaje: string): string =>
   `https://wa.me/${WA_NUMERO}?text=${encodeURIComponent(mensaje)}`;
