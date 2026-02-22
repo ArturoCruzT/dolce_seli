@@ -161,7 +161,7 @@ function PedidoCard({
       {/* Banner repartidor para pedidos en camino */}
       {estaEnCamino && (
         <button
-          onClick={() => router.push(`/admin/pedidos/${pedido.id}/repartidor`)}
+          onClick={() => router.push(`/fresas/pedidos/${pedido.id}/repartidor`)}
           className="w-full bg-gradient-to-r from-purple-500 to-purple-700 text-white text-xs font-bold px-4 py-2 flex items-center justify-between active:opacity-80 transition-opacity"
         >
           <span className="flex items-center gap-2">
@@ -298,7 +298,7 @@ function PedidoCard({
           {/* Botón Vista Repartidor (solo en_camino, prominente) */}
           {estaEnCamino && (
             <Link
-              href={`/admin/pedidos/${pedido.id}/repartidor`}
+              href={`/fresas/pedidos/${pedido.id}/repartidor`}
               className="flex-1 py-2.5 bg-gradient-to-r from-purple-500 to-purple-700 text-white text-sm font-bold rounded-dolce active:scale-95 transition-all text-center min-w-[120px]"
             >
               🛵 Iniciar recorrido
